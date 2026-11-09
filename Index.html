@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+   KHT ATTENDANCE — the web page people see and tap.
+   This file has three parts:
+     1. STYLE  (colors, sizes — the chapter look)
+     2. SCREENS (what's on the page)
+     3. SCRIPT (what happens when you tap things)
+   It can only get Knights' names from Code.gs, never
+   contact info.
+  ============================================================
+-->
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- ===================== 1. STYLE ===================== -->
+  <style>
+    /* Chapter colors: dark background, deep red, gold */
+    :root {
+      --bg: #121014;
+      --panel: #1e1a1f;
+      --panel-2: #2a2429;
+      --red: #8b1418;
+      --red-bright: #b3191f;
+      --gold: #d4a937;
+      --gold-light: #f3d27a;
+      --text: #f5f1e8;
+      --muted: #b8ad9c;
+      --ok: #2e8b57;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 18px; line-height: 1.4;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+
+    /* Header with chapter name and motto */
+    header {
+      text-align: center; padding: 18px 12px 14px;
+      border-bottom: 3px solid var(--gold);
+      background: linear-gradient(180deg, var(--red) 0%, #4a0a0d 100%);
+    }
+    header .order { color: var(--gold-light); font-size: 14px; letter-spacing: 2px; text-transform: uppercase; }
+    header h1 { margin: 4px 0 2px; font-size: 26px; color: #fff; }
+    header .chapter { color: var(--gold-light); font-size: 16px; }
+    .motto {
+      text-align: center; color: var(--gold); font-size: 14px;
+      letter-spacing: 1px; padding: 10px 8px; font-style: italic;
+    }
+
+    /* Big, easy-to-tap buttons */
+    button {
+      font: inherit; cursor: pointer; border: none;
+      border-radius: var(--radius); padding: 18px 20px;
+      min-height: 60px; width: 100%;
+      font-size: 20px; font-weight: 700;
+    }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-gold { background: var(--gold); color: #1a1200; }
+    .btn-red  { background: var(--red-bright); color: #fff; }
+    .btn-dark { background: var(--panel-2); color: var(--text); border: 2px solid var(--gold); }
+    .btn-small { min-height: 44px; padding: 10px 14px; font-size: 16px; width: auto; }
+    .stack > * + * { margin-top: 14px; }
+
+    .card { background: var(--panel); border-radius: var(--radius); padding: 20px; border: 1px solid #3a3238; }
+    .card h2 { margin-top: 0; color: var(--gold-light); }
+    .hint { color: var(--muted); font-size: 15px; }
+
+    input[type=password], input[type=text], input[type=date], select {
+      font: inherit; font-size: 20px; width: 100%;
+      padding: 14px; border-radius: var(--radius);
+      border: 2px solid var(--gold); background: #0c0a0d; color: var(--text);
+    }
+
+    /* Messages: success (green) and errors (red) */
+    .msg { border-radius: var(--radius); padding: 14px 16px; font-weight: 600; margin: 14px 0; }
+    .msg.ok  { background: #123d26; border: 2px solid var(--ok); }
+    .msg.err { background: #3d1214; border: 2px solid var(--red-bright); }
+
+    label.field { display: block; font-weight: 700; color: var(--gold-light); margin-bottom: 6px; }
+
+    /* Event type choices (Meeting / Mass / Service) */
+    .types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .types button { background: var(--panel-2); color: var(--text); border: 2px solid #4a4046; padding: 14px 6px; font-size: 18px; }
+    .types button small { display: block; font-weight: 400; font-size: 14px; color: var(--muted); }
+    .types button.on { background: var(--red-bright); border-color: var(--gold); color: #fff; }
+    .types button.on small { color: var(--gold-light); }
+
+    /* Scheduled events (from the Schedule tab) */
+    .sched-btn {
+      display: block; text-align: left; margin-bottom: 8px;
+      background: var(--panel-2); color: var(--text); border: 2px solid #4a4046;
+    }
+    .sched-btn small { display: block; font-weight: 400; font-size: 15px; color: var(--muted); }
+    .sched-btn.on { background: var(--red-bright); border-color: var(--gold); color: #fff; }
+    .sched-btn.on small { color: var(--gold-light); }
+    .divider { text-align: center; color: var(--muted); font-size: 15px; margin: 6px 0; }
+
+    /* The event summary shown above the check-in list */
+    .event-bar { background: var(--panel-2); border-left: 5px solid var(--gold); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
+    .event-bar b { color: var(--gold-light); }
+
+    /* The list of Knights — each row is one big tap target */
+    .tools { display: flex; gap: 10px; margin: 12px 0; }
+    .tools button { flex: 1; }
+    .knights { list-style: none; margin: 0; padding: 0; }
+    .knight {
+      display: flex; align-items: center; gap: 14px;
+      width: 100%; text-align: left; margin: 0 0 8px;
+      background: var(--panel); color: var(--text);
+      border: 2px solid #3a3238; font-weight: 600;
+    }
+    .knight .box {
+      flex: 0 0 34px; height: 34px; border-radius: 8px;
+      border: 3px solid var(--muted); display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .knight.on { background: #3a1416; border-color: var(--gold); }
+    .knight.on .box { background: var(--gold); border-color: var(--gold); color: #1a1200; }
+    .empty { text-align: center; color: var(--muted); padding: 20px; }
+    /* Knights already recorded for this event: dimmed, can't be tapped */
+    .knight.done { opacity: .55; cursor: default; }
+    .knight.done .box { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .knight small { display: block; font-weight: 400; font-size: 14px; color: var(--muted); }
+
+    /* Teen self check-in screen */
+    .kiosk-title { text-align: center; color: var(--gold-light); font-size: 26px; margin: 8px 0 12px; }
+    #kioskSearch { font-size: 22px; padding: 16px; margin-bottom: 12px; }
+
+    /* Leaderboard */
+    .seg { display: flex; gap: 8px; margin-bottom: 10px; }
+    .seg button { flex: 1; min-height: 48px; padding: 10px; font-size: 17px; background: var(--panel-2); color: var(--text); border: 2px solid #4a4046; }
+    .seg button.on { background: var(--red-bright); border-color: var(--gold); color: #fff; }
+    .row {
+      display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+      background: var(--panel); color: var(--text); border: 2px solid #3a3238;
+      margin-bottom: 8px; padding: 12px 14px; min-height: 64px; font-weight: 600;
+    }
+    .row .rank { flex: 0 0 40px; text-align: center; font-size: 22px; color: var(--gold-light); }
+    .row .who { flex: 1; min-width: 0; }
+    .row .who small { display: block; font-weight: 400; font-size: 14px; color: var(--muted); }
+    .row .pts { font-size: 26px; font-weight: 800; color: var(--gold); text-align: right; }
+    .row .pts small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+    .row.top { border-color: var(--gold); }
+    .stats { display: flex; gap: 10px; margin: 10px 0 16px; }
+    .stat { flex: 1; background: var(--panel-2); border-radius: 12px; padding: 12px; text-align: center; }
+    .stat b { display: block; font-size: 28px; color: var(--gold); }
+    .stat span { font-size: 14px; color: var(--muted); }
+    .hist { list-style: none; padding: 0; margin: 0; }
+    .hist li { display: flex; justify-content: space-between; gap: 10px; padding: 12px 4px; border-bottom: 1px solid #3a3238; }
+    .hist li small { display: block; color: var(--muted); font-size: 14px; }
+    .hist .p { color: var(--gold); font-weight: 800; white-space: nowrap; }
+
+    /* Pop-up box (confirm name, success, leader exit) */
+    .modal {
+      position: fixed; inset: 0; z-index: 10; padding: 16px;
+      background: rgba(0,0,0,.75); display: flex; align-items: center; justify-content: center;
+    }
+    .modal-card {
+      background: var(--panel); border: 3px solid var(--gold); border-radius: var(--radius);
+      padding: 24px; width: 100%; max-width: 460px; text-align: center;
+    }
+    .modal-card .big { font-size: 26px; font-weight: 800; margin: 6px 0 10px; }
+    .modal-card .emoji { font-size: 56px; line-height: 1; }
+
+    /* Submit bar stays stuck to the bottom of the screen */
+    .submit-bar {
+      position: sticky; bottom: 0; padding: 12px 0 16px;
+      background: linear-gradient(180deg, rgba(18,16,20,0) 0%, var(--bg) 30%);
+    }
+    .count { text-align: center; color: var(--gold-light); font-weight: 700; margin-bottom: 8px; }
+    .result-list { margin: 6px 0 0; padding-left: 22px; font-weight: 400; }
+
+    .hidden { display: none !important; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    footer { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <!-- ===================== 2. SCREENS ===================== -->
+  <header>
+    <div class="order">Knights of the Holy Temple</div>
+    <h1>⚔️ Attendance</h1>
+    <div class="chapter" id="chapterName">St. Maria Goretti Chapter</div>
+  </header>
+  <div class="motto">Worship God &nbsp;·&nbsp; Love the Brotherhood &nbsp;·&nbsp; Serve the Church</div>
+
+  <div class="wrap">
+    <!-- Shared message box for confirmations and errors -->
+    <div id="msg" class="msg hidden" role="status" aria-live="polite"></div>
+
+    <!-- Screen: Loading -->
+    <section id="screen-loading" class="card">
+      <p>Loading…</p>
+    </section>
+
+    <!-- Screen: Locked (enter chapter passcode) -->
+    <section id="screen-lock" class="card stack hidden">
+      <h2>🔒 Leader unlock</h2>
+      <p class="hint">A leader types the chapter passcode once. This device then stays unlocked until someone taps “Lock this device”.</p>
+      <input id="passcode" type="password" placeholder="Chapter passcode" autocomplete="current-password">
+      <button class="btn-gold" id="unlockBtn" onclick="unlock()">Unlock</button>
+    </section>
+
+    <!-- Screen: Home menu -->
+    <section id="screen-home" class="stack hidden">
+      <button class="btn-gold" onclick="startLeader()">🛡️ Leader check-in</button>
+      <button class="btn-red" onclick="startKioskSetup()">✋ Teen self check-in</button>
+      <button class="btn-dark" onclick="openBoard()">🏆 Leaderboard</button>
+      <p class="hint" style="text-align:center">✅ This device is unlocked and connected to the chapter spreadsheet.</p>
+      <div style="text-align:center">
+        <button class="btn-dark btn-small" onclick="lockDevice()">🔒 Lock this device</button>
+      </div>
+    </section>
+
+    <!-- Screen: Event setup (date, type, name) -->
+    <section id="screen-event" class="hidden">
+      <div class="topbar">
+        <button class="btn-dark btn-small" onclick="goHome()">← Menu</button>
+      </div>
+      <div class="card stack">
+        <h2>📅 Event setup</h2>
+
+        <!-- Events from the Schedule tab -->
+        <div>
+          <span class="field" style="display:block;font-weight:700;color:var(--gold-light);margin-bottom:6px">Today's scheduled events</span>
+          <div id="schedToday"><p class="hint">Loading schedule…</p></div>
+          <label class="field" for="schedPick" style="margin-top:6px">Another scheduled event</label>
+          <select id="schedPick" onchange="pickScheduled(this.value)">
+            <option value="">Choose from the schedule…</option>
+          </select>
+        </div>
+        <div class="divider">— or type it in yourself —</div>
+
+        <div>
+          <label class="field" for="evDate">Date</label>
+          <input id="evDate" type="date">
+        </div>
+        <div>
+          <span class="field" style="display:block;font-weight:700;color:var(--gold-light);margin-bottom:6px">Event type</span>
+          <div class="types" id="evTypes"><!-- filled in by the script --></div>
+        </div>
+        <div>
+          <label class="field" for="evName">Event name <span class="hint">(optional)</span></label>
+          <input id="evName" type="text" maxlength="100" placeholder="e.g. November Meeting">
+        </div>
+        <div>
+          <label class="field" for="evBy">Your name <span class="hint">(recorded by)</span></label>
+          <input id="evBy" type="text" maxlength="60" placeholder="e.g. Mr. Smith">
+        </div>
+        <button class="btn-gold" id="evNextBtn" onclick="goToCheckin()">Next: take attendance →</button>
+      </div>
+    </section>
+
+    <!-- Screen: Leader check-in list -->
+    <section id="screen-checkin" class="hidden">
+      <div class="topbar">
+        <button class="btn-dark btn-small" onclick="backToEvent()">← Event</button>
+      </div>
+      <div class="event-bar" id="eventBar"></div>
+      <input id="search" type="text" placeholder="🔍 Search names…" autocomplete="off" oninput="renderList()">
+      <div class="tools">
+        <button class="btn-dark btn-small" onclick="markAll(true)">✔ Mark all present</button>
+        <button class="btn-dark btn-small" onclick="markAll(false)">✖ Clear all</button>
+      </div>
+      <ul class="knights" id="knightList"></ul>
+      <div class="submit-bar">
+        <div class="count" id="count">0 present</div>
+        <button class="btn-gold" id="submitBtn" onclick="submitAttendance()">Submit attendance</button>
+      </div>
+    </section>
+
+    <!-- Screen: Teen self check-in (the computer at the door) -->
+    <section id="screen-kiosk" class="hidden">
+      <div class="event-bar" id="kioskBar"></div>
+      <h2 class="kiosk-title">✋ Tap your name to check in</h2>
+      <input id="kioskSearch" type="text" placeholder="🔍 Type your first or last name…" autocomplete="off" oninput="renderKiosk()">
+      <ul class="knights" id="kioskList"></ul>
+      <div style="text-align:center;margin-top:24px">
+        <button class="btn-dark btn-small" onclick="askExitKiosk()">🔒 Leader: exit self check-in</button>
+      </div>
+    </section>
+
+    <!-- Screen: Leaderboard -->
+    <section id="screen-board" class="hidden">
+      <div class="topbar">
+        <button class="btn-dark btn-small" onclick="goHome()">← Menu</button>
+      </div>
+      <h2 style="color:var(--gold-light);margin:4px 0 10px">🏆 Leaderboard</h2>
+      <div class="seg">
+        <button id="segSeason" class="on" onclick="setBoardRange('season')">This year</button>
+        <button id="segAll" onclick="setBoardRange('all')">All time</button>
+      </div>
+      <p class="hint" id="boardNote" style="margin:0 0 10px"></p>
+      <input id="boardSearch" type="text" placeholder="🔍 Find a Knight…" autocomplete="off" oninput="renderBoard()" style="margin-bottom:12px">
+      <div id="boardList"><p class="empty">Loading…</p></div>
+      <p class="hint" style="text-align:center">Tap a name to see their attendance history.</p>
+    </section>
+
+    <!-- Screen: One Knight's history -->
+    <section id="screen-history" class="hidden">
+      <div class="topbar">
+        <button class="btn-dark btn-small" onclick="show('board')">← Leaderboard</button>
+      </div>
+      <div id="historyBody"><p class="empty">Loading…</p></div>
+    </section>
+  </div>
+
+  <!-- Pop-up box used by self check-in -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card stack" id="modalBody"></div>
+  </div>
+
+  <footer>Knights of the Holy Temple · St. Maria Goretti</footer>
+
+
+  <!-- ===================== 3. SCRIPT ===================== -->
+  <script>
+    /* ---------- Saving the unlock key on this device ---------- */
+    // The key is kept in this browser only, so this computer stays unlocked.
+    const KEY_NAME = 'kht_key';
+    function getKey()  { try { return localStorage.getItem(KEY_NAME) || ''; } catch (e) { return window._key || ''; } }
+    function saveKey(k){ try { localStorage.setItem(KEY_NAME, k); } catch (e) { window._key = k; } }
+    function clearKey(){ try { localStorage.removeItem(KEY_NAME); } catch (e) { window._key = ''; } }
+
+    /* ---------- Talking to Code.gs ---------- */
+    // call('apiSomething', arg1, arg2) asks the server and waits for the answer.
+    function call(fnName) {
+      const args = Array.prototype.slice.call(arguments, 1);
+      return new Promise(function (resolve, reject) {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(function (err) {
+            const text = (err && err.message) ? err.message : String(err);
+            // If the passcode was changed, this device needs unlocking again.
+            if (text.indexOf('LOCKED') !== -1) { clearKey(); show('lock'); }
+            reject(new Error(text.replace(/^Error:\s*/, '')));
+          })[fnName].apply(null, args);
+      });
+    }
+
+    /* ---------- Switching screens & showing messages ---------- */
+    function show(name) {
+      document.querySelectorAll('section[id^="screen-"]').forEach(function (s) {
+        s.classList.toggle('hidden', s.id !== 'screen-' + name);
+      });
+    }
+    // message('Saved!', 'ok') or message('Something broke', 'err').
+    // "details" is an optional list of names shown under the message.
+    // "stay" keeps the message up until the next one (for results).
+    function message(text, kind, details, stay) {
+      const box = document.getElementById('msg');
+      box.textContent = text;
+      if (details && details.length) {
+        const ul = document.createElement('ul');
+        ul.className = 'result-list';
+        details.forEach(function (d) {
+          const li = document.createElement('li');
+          li.textContent = d;
+          ul.appendChild(li);
+        });
+        box.appendChild(ul);
+      }
+      box.className = 'msg ' + (kind === 'ok' ? 'ok' : 'err');
+      window.scrollTo(0, 0);
+      clearTimeout(message._t);
+      if (!stay) message._t = setTimeout(function () { box.classList.add('hidden'); }, 6000);
+    }
+    function hideMessage() { document.getElementById('msg').classList.add('hidden'); }
+
+    /* ---------- Shared info about this session ---------- */
+    const state = {
+      eventPoints: { Meeting: 1, Mass: 3, Service: 2 }, // replaced by the server's settings
+      today: '',
+      roster: [],          // [{first, last}] — names only
+      present: {},         // "First Last" -> true for everyone tapped present
+      checkedIn: {},       // "first last" (lowercase) -> true if already recorded for this event
+      mode: 'leader',      // 'leader' or 'kiosk' (teen self check-in)
+      event: { date: '', type: '', name: '', recordedBy: '' }
+    };
+    function fullName(k) { return k.first + ' ' + k.last; }
+    function niceDate(iso) {
+      const p = iso.split('-');
+      const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+      return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function goHome() { hideMessage(); show('home'); }
+    // Today's date from this device, as a backup if the server's isn't known yet.
+    function localToday() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    /* ---------- Event setup screen ---------- */
+    // Both buttons on the menu open the same event setup screen first.
+    function startLeader()     { state.mode = 'leader'; openEventSetup(); }
+    function startKioskSetup() { state.mode = 'kiosk';  openEventSetup(); }
+
+    function openEventSetup() {
+      hideMessage();
+      document.getElementById('evNextBtn').textContent =
+        state.mode === 'kiosk' ? 'Start teen self check-in →' : 'Next: take attendance →';
+      const ev = state.event;
+      document.getElementById('evDate').value = ev.date || state.today || localToday();
+      document.getElementById('evName').value = ev.name || '';
+      try { document.getElementById('evBy').value = ev.recordedBy || localStorage.getItem('kht_by') || ''; } catch (e) {}
+      drawTypeButtons();
+      show('event');
+      loadSchedule();
+      loadRoster(); // start loading names in the background
+    }
+
+    /* ---------- Scheduled events (from the Schedule tab) ---------- */
+    // Loads the schedule from the sheet and draws the choices.
+    function loadSchedule() {
+      call('apiGetSchedule', getKey())
+        .then(function (list) {
+          state.schedule = list;
+          // If nothing is picked yet and there's exactly one event today, pick it.
+          const todays = list.filter(function (e) { return e.date === todayStr(); });
+          if (!state.event.type && todays.length === 1) {
+            pickScheduled(String(list.indexOf(todays[0])));
+          }
+          drawSchedule();
+        })
+        .catch(function (e) {
+          document.getElementById('schedToday').innerHTML = '';
+          message('Could not load the schedule: ' + e.message, 'err');
+        });
+    }
+    function todayStr() { return state.today || localToday(); }
+
+    // Is the chosen event the same as scheduled event e?
+    function isPicked(e) {
+      const ev = state.event;
+      return ev.date === e.date && ev.type === e.type && ev.name === e.name;
+    }
+
+    function drawSchedule() {
+      const list = state.schedule || [];
+      const today = todayStr();
+
+      // Big buttons for today's events
+      const box = document.getElementById('schedToday');
+      box.innerHTML = '';
+      list.forEach(function (e, i) {
+        if (e.date !== today) return;
+        const pts = state.eventPoints[e.type];
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sched-btn' + (isPicked(e) ? ' on' : '');
+        b.textContent = e.name;
+        const small = document.createElement('small');
+        small.textContent = e.type + ' · ' + pts + (pts === 1 ? ' pt' : ' pts') + ' · Today';
+        b.appendChild(small);
+        b.onclick = function () { pickScheduled(String(i)); };
+        box.appendChild(b);
+      });
+      if (!box.children.length) {
+        box.innerHTML = '<p class="hint" style="margin:0 0 6px">Nothing on the schedule for today.</p>';
+      }
+
+      // Dropdown of every other scheduled event: upcoming first, then past (newest first)
+      const sel = document.getElementById('schedPick');
+      sel.innerHTML = '<option value="">' +
+        (list.length ? 'Choose from the schedule…' : 'No events on the Schedule tab yet') + '</option>';
+      const upcoming = document.createElement('optgroup'); upcoming.label = 'Upcoming';
+      const past = document.createElement('optgroup'); past.label = 'Past';
+      list.forEach(function (e, i) {
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = niceDate(e.date) + ' — ' + e.name + ' (' + e.type + ')';
+        if (isPicked(e)) o.selected = true;
+        if (e.date >= today) upcoming.appendChild(o); else past.insertBefore(o, past.firstChild);
+      });
+      if (upcoming.children.length) sel.appendChild(upcoming);
+      if (past.children.length) sel.appendChild(past);
+    }
+
+    // Fills in the date, type and name from scheduled event number "i".
+    function pickScheduled(i) {
+      const e = (state.schedule || [])[Number(i)];
+      if (i === '' || !e) return;
+      state.event.date = e.date;
+      state.event.type = e.type;
+      state.event.name = e.name;
+      document.getElementById('evDate').value = e.date;
+      document.getElementById('evName').value = e.name;
+      drawTypeButtons();
+      drawSchedule();
+    }
+    function drawTypeButtons() {
+      const box = document.getElementById('evTypes');
+      box.innerHTML = '';
+      Object.keys(state.eventPoints).forEach(function (type) {
+        const pts = state.eventPoints[type];
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = (state.event.type === type) ? 'on' : '';
+        b.textContent = type;
+        const small = document.createElement('small');
+        small.textContent = pts + (pts === 1 ? ' point' : ' points');
+        b.appendChild(small);
+        b.onclick = function () { state.event.type = type; drawTypeButtons(); if (state.schedule) drawSchedule(); };
+        box.appendChild(b);
+      });
+    }
+    function goToCheckin() {
+      const ev = state.event;
+      ev.date = document.getElementById('evDate').value;
+      ev.name = document.getElementById('evName').value.trim();
+      ev.recordedBy = document.getElementById('evBy').value.trim();
+      if (!ev.date) { message('Please pick a date.', 'err'); return; }
+      if (!ev.type) { message('Please tap an event type: Meeting, Mass, or Service.', 'err'); return; }
+      try { localStorage.setItem('kht_by', ev.recordedBy); } catch (e) {}
+      hideMessage();
+      drawEventBar();
+      state.present = {};
+      state.checkedIn = {};
+      loadCheckedIn();
+      if (state.mode === 'kiosk') { startKiosk(); return; }
+      document.getElementById('search').value = '';
+      renderList();
+      show('checkin');
+    }
+    function backToEvent() { openEventSetup(); }
+
+    /* ---------- Who is already checked in for this event ---------- */
+    // state.checkedIn holds lowercase "first last" names already recorded.
+    function isCheckedIn(k) { return !!state.checkedIn[fullName(k).toLowerCase()]; }
+    function markCheckedIn(names) {
+      names.forEach(function (n) { state.checkedIn[String(n).toLowerCase()] = true; });
+    }
+    function loadCheckedIn() {
+      const ev = state.event;
+      return call('apiGetCheckedIn', getKey(), ev.date, ev.type)
+        .then(function (names) {
+          markCheckedIn(names);
+          // Anyone already recorded doesn't need tapping again.
+          Object.keys(state.present).forEach(function (n) {
+            if (state.checkedIn[n.toLowerCase()]) delete state.present[n];
+          });
+          renderList();
+          renderKiosk();
+        })
+        .catch(function () { /* not critical — duplicates are still blocked when saving */ });
+    }
+
+    // Typing a date or name by hand un-highlights any scheduled event that no longer matches.
+    ['evDate', 'evName'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', function () {
+        state.event.date = document.getElementById('evDate').value;
+        state.event.name = document.getElementById('evName').value.trim();
+        if (state.schedule) drawSchedule();
+      });
+    });
+    function drawEventBar() {
+      const ev = state.event, pts = state.eventPoints[ev.type];
+      const bar = document.getElementById('eventBar');
+      bar.innerHTML = '';
+      const b = document.createElement('b');
+      b.textContent = ev.type + ' · ' + pts + (pts === 1 ? ' pt' : ' pts');
+      bar.appendChild(b);
+      bar.appendChild(document.createTextNode(' — ' + niceDate(ev.date) + (ev.name ? ' — ' + ev.name : '')));
+    }
+
+    /* ---------- Loading the roster (names only) ---------- */
+    let rosterPromise = null;
+    function loadRoster(force) {
+      if (rosterPromise && !force) return rosterPromise;
+      rosterPromise = call('apiGetRoster', getKey())
+        .then(function (list) {
+          state.roster = list;
+          state.rosterLoaded = true;
+          renderList();
+          renderKiosk();
+          return list;
+        })
+        .catch(function (e) {
+          rosterPromise = null;
+          message('Could not load the roster: ' + e.message, 'err', null, true);
+        });
+      return rosterPromise;
+    }
+
+    /* ---------- The check-in list ---------- */
+    function renderList() {
+      const list = document.getElementById('knightList');
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      list.innerHTML = '';
+      if (!state.roster.length) {
+        list.innerHTML = state.rosterLoaded
+          ? '<li class="empty">No Knights found on the roster tab.</li>'
+          : '<li class="empty">Loading Knights…</li>';
+      }
+      let shown = 0;
+      state.roster.forEach(function (k) {
+        const name = fullName(k);
+        if (q && name.toLowerCase().indexOf(q) === -1) return;
+        shown++;
+        const done = isCheckedIn(k);
+        const on = !!state.present[name];
+        const li = document.createElement('li');
+        const b = knightButton(name, done, on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        if (!done) {
+          b.onclick = function () {
+            if (state.present[name]) delete state.present[name]; else state.present[name] = true;
+            renderList();
+          };
+        }
+        li.appendChild(b);
+        list.appendChild(li);
+      });
+      if (state.roster.length && shown === 0) {
+        list.innerHTML = '<li class="empty">No names match your search.</li>';
+      }
+      updateCount();
+    }
+    // Builds one name row. "done" = already checked in (dimmed, green ✓).
+    function knightButton(name, done, on) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'knight' + (done ? ' done' : on ? ' on' : '');
+      const box = document.createElement('span');
+      box.className = 'box';
+      box.textContent = (done || on) ? '✓' : '';
+      const label = document.createElement('span');
+      label.textContent = name;
+      if (done) {
+        const small = document.createElement('small');
+        small.textContent = 'Already checked in';
+        label.appendChild(small);
+      }
+      b.appendChild(box);
+      b.appendChild(label);
+      return b;
+    }
+    function updateCount() {
+      const n = Object.keys(state.present).length;
+      const already = state.roster.filter(isCheckedIn).length;
+      document.getElementById('count').textContent =
+        n + ' tapped' + (already ? ' · ' + already + ' already checked in' : '') +
+        ' · ' + state.roster.length + ' on roster';
+    }
+    // Marks (or clears) everyone currently shown — respects the search box.
+    function markAll(on) {
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      state.roster.forEach(function (k) {
+        const name = fullName(k);
+        if (q && name.toLowerCase().indexOf(q) === -1) return;
+        if (on && !isCheckedIn(k)) state.present[name] = true; else delete state.present[name];
+      });
+      renderList();
+    }
+
+    /* ---------- Submit ---------- */
+    function submitAttendance() {
+      const knights = state.roster.filter(function (k) { return state.present[fullName(k)]; });
+      if (!knights.length) { message('Tap at least one Knight before submitting.', 'err'); return; }
+      const ev = state.event;
+      if (!confirm('Submit ' + knights.length + ' Knight(s) present for ' + ev.type + ' on ' + niceDate(ev.date) + '?')) return;
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      call('apiSubmitAttendance', getKey(), {
+        date: ev.date, type: ev.type, name: ev.name, recordedBy: ev.recordedBy, knights: knights
+      })
+        .then(function (res) {
+          state.present = {};
+          markCheckedIn(res.added.concat(res.skipped));
+          renderList();
+          let text = '✅ Saved! ' + res.added.length + ' Knight(s) got ' + res.points +
+                     (res.points === 1 ? ' point' : ' points') + ' for ' + ev.type + '.';
+          let details = [];
+          if (res.skipped.length) {
+            text += ' ' + res.skipped.length + ' were already recorded for this event and were skipped:';
+            details = res.skipped;
+          }
+          message(text, 'ok', details, true);
+        })
+        .catch(function (e) {
+          // Nothing is cleared, so you can just tap Submit again.
+          message('❌ Not saved: ' + e.message + ' Your selections are still here, so you can try again.', 'err', null, true);
+        })
+        .then(function () { btn.disabled = false; btn.textContent = 'Submit attendance'; });
+    }
+
+    /* ---------- Teen self check-in ---------- */
+    function startKiosk() {
+      document.getElementById('kioskBar').innerHTML = document.getElementById('eventBar').innerHTML;
+      document.getElementById('kioskSearch').value = '';
+      renderKiosk();
+      show('kiosk');
+      document.getElementById('kioskSearch').focus();
+    }
+
+    function renderKiosk() {
+      const list = document.getElementById('kioskList');
+      if (!list) return;
+      const q = document.getElementById('kioskSearch').value.trim().toLowerCase();
+      list.innerHTML = '';
+      if (!state.roster.length) {
+        list.innerHTML = '<li class="empty">' + (state.rosterLoaded ? 'No Knights found on the roster tab.' : 'Loading names…') + '</li>';
+        return;
+      }
+      let shown = 0;
+      state.roster.forEach(function (k) {
+        const name = fullName(k);
+        if (q && name.toLowerCase().indexOf(q) === -1) return;
+        shown++;
+        const done = isCheckedIn(k);
+        const li = document.createElement('li');
+        const b = knightButton(name, done, false);
+        if (!done) b.onclick = function () { confirmSelf(k); };
+        li.appendChild(b);
+        list.appendChild(li);
+      });
+      if (!shown) list.innerHTML = '<li class="empty">No names match. Check the spelling, or ask a leader.</li>';
+    }
+
+    // Pop-up helpers
+    function openModal(build) {
+      const body = document.getElementById('modalBody');
+      body.innerHTML = '';
+      build(body);
+      document.getElementById('modal').classList.remove('hidden');
+    }
+    function closeModal() {
+      clearTimeout(closeModal._t);
+      document.getElementById('modal').classList.add('hidden');
+    }
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+
+    // "Are you John Smith?"  [Yes]  [No]
+    function confirmSelf(k) {
+      openModal(function (body) {
+        body.appendChild(el('div', 'hint', 'Are you…'));
+        body.appendChild(el('div', 'big', fullName(k) + '?'));
+        const yes = el('button', 'btn-gold', '✅ Yes, check me in');
+        const no = el('button', 'btn-dark', 'No, go back');
+        yes.onclick = function () {
+          yes.disabled = true; no.disabled = true; yes.textContent = 'Checking in…';
+          checkInSelf(k);
+        };
+        no.onclick = closeModal;
+        body.appendChild(yes);
+        body.appendChild(no);
+      });
+    }
+
+    function checkInSelf(k) {
+      const ev = state.event;
+      call('apiSelfCheckIn', getKey(), { date: ev.date, type: ev.type, name: ev.name }, { first: k.first, last: k.last })
+        .then(function (res) {
+          markCheckedIn(res.added.concat(res.skipped));
+          const isNew = res.added.length > 0;
+          openModal(function (body) {
+            body.appendChild(el('div', 'emoji', isNew ? '✅' : '👍'));
+            body.appendChild(el('div', 'big', isNew
+              ? "You're checked in, " + k.first + '!'
+              : "You're already checked in, " + k.first + '!'));
+            if (isNew) {
+              body.appendChild(el('div', 'hint', '+' + res.points + (res.points === 1 ? ' point' : ' points') +
+                ' for ' + (ev.name || ev.type) + '. Welcome, brother!'));
+            }
+            const ok = el('button', 'btn-gold', 'Done');
+            ok.onclick = resetKiosk;
+            body.appendChild(ok);
+          });
+          // Clear the screen for the next person after a few seconds.
+          closeModal._t = setTimeout(resetKiosk, 4000);
+        })
+        .catch(function (e) {
+          openModal(function (body) {
+            body.appendChild(el('div', 'emoji', '⚠️'));
+            body.appendChild(el('div', 'big', 'Not checked in'));
+            body.appendChild(el('p', '', e.message + ' Please try again, or tell a leader.'));
+            const again = el('button', 'btn-gold', 'Try again');
+            again.onclick = function () { confirmSelf(k); };
+            const back = el('button', 'btn-dark', 'Go back');
+            back.onclick = closeModal;
+            body.appendChild(again);
+            body.appendChild(back);
+          });
+        });
+    }
+
+    function resetKiosk() {
+      closeModal();
+      document.getElementById('kioskSearch').value = '';
+      renderKiosk();
+      loadCheckedIn(); // pick up anyone a leader checked in on another device
+      document.getElementById('kioskSearch').focus();
+    }
+
+    // Leaving self check-in needs the passcode, so teens can't wander into leader screens.
+    function askExitKiosk() {
+      openModal(function (body) {
+        body.appendChild(el('div', 'big', '🔒 Leader exit'));
+        body.appendChild(el('p', 'hint', 'Type the chapter passcode to leave self check-in.'));
+        const input = el('input');
+        input.type = 'password';
+        input.placeholder = 'Chapter passcode';
+        const go = el('button', 'btn-gold', 'Exit self check-in');
+        const cancel = el('button', 'btn-dark', 'Cancel');
+        go.onclick = function () {
+          go.disabled = true; go.textContent = 'Checking…';
+          call('apiUnlock', input.value)
+            .then(function () { closeModal(); state.mode = 'leader'; goHome(); })
+            .catch(function (e) {
+              go.disabled = false; go.textContent = 'Exit self check-in';
+              input.value = '';
+              input.placeholder = e.message;
+            });
+        };
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go.click(); });
+        cancel.onclick = closeModal;
+        body.appendChild(input);
+        body.appendChild(go);
+        body.appendChild(cancel);
+        input.focus();
+      });
+    }
+
+    /* ---------- Leaderboard ---------- */
+    const board = { range: 'season', data: null };
+
+    function openBoard() {
+      hideMessage();
+      document.getElementById('boardSearch').value = '';
+      show('board');
+      loadBoard();
+    }
+    function setBoardRange(range) {
+      board.range = range;
+      document.getElementById('segSeason').classList.toggle('on', range === 'season');
+      document.getElementById('segAll').classList.toggle('on', range === 'all');
+      loadBoard();
+    }
+    function loadBoard() {
+      document.getElementById('boardList').innerHTML = '<p class="empty">Loading…</p>';
+      call('apiGetLeaderboard', getKey(), board.range)
+        .then(function (res) {
+          board.data = res;
+          document.getElementById('boardNote').textContent = res.since
+            ? 'Points since ' + niceDate(res.since) + '.'
+            : 'All points ever recorded.';
+          renderBoard();
+        })
+        .catch(function (e) {
+          document.getElementById('boardList').innerHTML = '';
+          message('Could not load the leaderboard: ' + e.message, 'err', null, true);
+        });
+    }
+    // Plural helper: plural(3, 'Mass', 'Masses') -> "3 Masses"
+    function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+    function typeSummary(byType) {
+      const parts = [];
+      if (byType.Meeting) parts.push(plural(byType.Meeting, 'meeting', 'meetings'));
+      if (byType.Mass) parts.push(plural(byType.Mass, 'Mass', 'Masses'));
+      if (byType.Service) parts.push(plural(byType.Service, 'service', 'services'));
+      Object.keys(byType).forEach(function (t) {
+        if (['Meeting', 'Mass', 'Service'].indexOf(t) === -1) parts.push(byType[t] + ' ' + t);
+      });
+      return parts.join(' · ') || 'No events yet';
+    }
+    function renderBoard() {
+      const box = document.getElementById('boardList');
+      if (!board.data) return;
+      const q = document.getElementById('boardSearch').value.trim().toLowerCase();
+      box.innerHTML = '';
+      let rank = 0, lastPts = null, shown = 0;
+      board.data.list.forEach(function (k, i) {
+        // Ties share a rank (e.g. 1, 2, 2, 4).
+        if (k.points !== lastPts) { rank = i + 1; lastPts = k.points; }
+        const name = fullName(k);
+        if (q && name.toLowerCase().indexOf(q) === -1) return;
+        shown++;
+        const b = el('button', 'row' + (rank <= 3 && k.points > 0 ? ' top' : ''));
+        b.type = 'button';
+        const medal = k.points > 0 ? ({ 1: '🥇', 2: '🥈', 3: '🥉' })[rank] : '';
+        b.appendChild(el('span', 'rank', medal || String(rank)));
+        const who = el('span', 'who', name);
+        who.appendChild(el('small', '', typeSummary(k.byType)));
+        b.appendChild(who);
+        const pts = el('span', 'pts', String(k.points));
+        pts.appendChild(el('small', '', k.points === 1 ? 'point' : 'points'));
+        b.appendChild(pts);
+        b.onclick = function () { openHistory(k); };
+        box.appendChild(b);
+      });
+      if (!shown) box.innerHTML = '<p class="empty">' + (q ? 'No names match your search.' : 'No Knights yet.') + '</p>';
+    }
+
+    /* ---------- One Knight's history ---------- */
+    function openHistory(k) {
+      const body = document.getElementById('historyBody');
+      body.innerHTML = '<p class="empty">Loading…</p>';
+      show('history');
+      window.scrollTo(0, 0);
+      call('apiGetHistory', getKey(), k.first, k.last)
+        .then(function (h) {
+          body.innerHTML = '';
+          body.appendChild(el('h2', '', '⚔️ ' + h.first + ' ' + h.last)).style.color = 'var(--gold-light)';
+          const stats = el('div', 'stats');
+          [[h.seasonPoints, 'points this year'], [h.allPoints, 'points all time'], [h.rows.length, 'events attended']]
+            .forEach(function (s) {
+              const d = el('div', 'stat');
+              d.appendChild(el('b', '', String(s[0])));
+              d.appendChild(el('span', '', s[1]));
+              stats.appendChild(d);
+            });
+          body.appendChild(stats);
+          if (!h.rows.length) {
+            body.appendChild(el('p', 'empty', 'No attendance recorded yet.'));
+            return;
+          }
+          const ul = el('ul', 'hist');
+          h.rows.forEach(function (r) {
+            const li = el('li');
+            const left = el('div', '', r.name || r.type);
+            left.appendChild(el('small', '', niceDateSafe(r.date) + ' · ' + r.type));
+            li.appendChild(left);
+            li.appendChild(el('div', 'p', '+' + r.points));
+            ul.appendChild(li);
+          });
+          body.appendChild(ul);
+        })
+        .catch(function (e) {
+          body.innerHTML = '';
+          message('Could not load history: ' + e.message, 'err', null, true);
+        });
+    }
+    // Shows "Mon, Nov 9, 2026" for 2026-11-09, or the text as-is if it's another format.
+    function niceDateSafe(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s) ? niceDate(s) : s; }
+
+    /* ---------- Unlock / lock ---------- */
+    function unlock() {
+      const input = document.getElementById('passcode');
+      const btn = document.getElementById('unlockBtn');
+      btn.disabled = true; btn.textContent = 'Checking…';
+      call('apiUnlock', input.value)
+        .then(function (res) {
+          saveKey(res.key);
+          input.value = '';
+          message('Unlocked! This device will stay unlocked.', 'ok');
+          show('home');
+        })
+        .catch(function (e) { message(e.message, 'err'); })
+        .then(function () { btn.disabled = false; btn.textContent = 'Unlock'; });
+    }
+    document.getElementById('passcode').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') unlock();
+    });
+
+    function lockDevice() {
+      if (!confirm('Lock this device? A leader will need the passcode to unlock it again.')) return;
+      clearKey();
+      show('lock');
+      message('This device is locked.', 'ok');
+    }
+
+    /* ---------- When the page first opens ---------- */
+    (function start() {
+      const key = getKey();
+      if (!key) { show('lock'); return; }
+      call('apiCheckKey', key)
+        .then(function (res) {
+          document.getElementById('chapterName').textContent = res.chapter;
+          state.eventPoints = res.eventPoints;
+          state.today = res.today;
+          show('home');
+        })
+        .catch(function (e) {
+          show('lock');
+          if (e.message.indexOf('LOCKED') === -1) message(e.message, 'err');
+        });
+    })();
+  </script>
+</body>
+</html>
